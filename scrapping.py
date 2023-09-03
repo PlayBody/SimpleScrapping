@@ -11,7 +11,8 @@ import time
 import threading
 
 
-data = pd.read_excel("./urls.xlsx")
+data = pd.read_excel("./new_urls.xlsx")
+
 
 data["website"] = ""
 data["full_address"] = ""
@@ -21,17 +22,60 @@ data["phone"] = ""
 
 start = time.time()
 
-headers = {
+headers_regular = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+    "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7,ko;q=0.6",
+    "Connection": "keep-alive",
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate, br"
+}
+
+headers_special = {
     "User-Agent": "Mozilla/5.0",
     "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7,ko;q=0.6",
     "Connection": "keep-alive",
-    "Accept": "*/*"
+    "Accept": "*/*",
 }
+
+name_cases = [
+    ">name",
+    ">user",
+    ">your name",
+    'placeholder="your name"',
+    'placeholder="name"',
+    '> name',
+    '> user',
+    "> your name",
+]
+
+phone_cases = [
+    ">phone",
+    ">mobile",
+    ">number",
+    ">office phone",
+    'placeholder="phone"',
+    'placeholder="mobile"',
+    'placeholder="number"',
+    '> phone',
+    '> mobile',
+    "> number",
+]
+
+email_cases = [
+    ">email",
+    ">your email",
+    'placeholder="your email"',
+    'placeholder="email"',
+    '> email',
+    '> your email',
+]
 
 def get_data(index, url, catched):
     try:
-        if "https://www.toasttab" in url:
-            response = requests.get(url, headers=headers)
+        if "https://" in url:
+            response = requests.get(url, headers=headers_regular)
+            if response.status_code != 200:
+                response = requests.get(url, headers=headers_special)
             soup = BeautifulSoup(response.content, "html.parser")
 
             add1 = ""
@@ -48,6 +92,34 @@ def get_data(index, url, catched):
             try: website = soup.find("a", string="Website").get("href")
             except: website = ""
 #             print(website)
+
+            try: 
+                forms = soup.find_all("form")
+                for form in forms:
+                    str_form = str(form).lower()
+                    is_ok = True
+                    for name_case in name_cases:
+                        if name_case not in str_form:
+                            is_ok = False
+                    if is_ok == False:
+                        continue
+                    for phone_case in phone_cases:
+                        if phone_case not in str_form:
+                            is_ok = False
+                    if is_ok == False:
+                        continue
+                    
+                    for email_case in email_cases:
+                        if email_case not in str_form:
+                            is_ok = False
+                    if is_ok == False:
+                        continue
+                    if is_ok == True:
+                        print(form)
+                        std_out = "./" + str(index) + "_out.xml"
+                        with open(std_out, "w") as file:
+                            file.write(str(form))
+            except: form = ""
 
             catched[index] = [website, add1, tel]
         else:
